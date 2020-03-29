@@ -1,6 +1,8 @@
 from collections import deque
+import copy
 import sys
 
+from State import State
 from Problem import Problem
 from SimpleProblemSolvingAgentProgram import SimpleProblemSolvingAgentProgram
 
@@ -9,120 +11,55 @@ class MissionariesCannibals(Problem):
         super().__init__(initial, goal)
 
     def actions(self, state):
-        possible_actions = ['left', 'right', ('take', 'm', 1), ('take', 'm', 2),
-                            ('take', 'c', 1), ('take', 'c', 2), ('put', 'm', 1),
-                            ('put', 'm', 2), ('put', 'c', 1), ('put', 'c', 2)]
+        possible_actions = [(0, 1), (0, 2), (1, 0), (1, 1), (2, 0)]
         
-        if state[0] == 'loc_A':
-            self.remove('left', possible_actions)
+        missionaries = state[0]
+        cannibals = state[1]
+        location = state[2]
+
+        a = copy.deepcopy(possible_actions)
+        if location == 'loc_A':
+            for i in range(0, len(a)):
+                if missionaries < a[i][0] or cannibals < a[i][1]:
+                    possible_actions.remove(a[i])
         else:
-            self.remove('right', possible_actions)
-
-        status = state[1]
-        self.__missionariesActions(status, possible_actions)
-
-        self.__cannibalsActions(status, possible_actions)
-            
-        self.__capacityActions(len(state[3]), possible_actions)
-
+            for i in range(0, len(a)):
+                if missionaries + a[i][0] > 3 or cannibals + a[i][1] > 3:
+                    possible_actions.remove(a[i])
+        
         return possible_actions
-
-    def remove(self,x , possibleActions):
-        if x in possibleActions:
-            possibleActions.remove(x)
     
-    def __missionariesActions(self, status, possible_actions):
-        if status[0] < 2: #missionaries
-            self.remove(('take', 'm', 2), possible_actions)
-            if status[0] < 1:
-                self.remove(('take', 'm', 1), possible_actions)
-        else:
-            self.remove(('put', 'm', 2), possible_actions)
-            if status[0] > 2:
-                self.remove(('put', 'm', 1), possible_actions)
-
-    def __cannibalsActions(self, status, possible_actions):
-        if status[1] < 2: #cannibals
-            self.remove(('take', 'c', 2), possible_actions)
-            if status[1] < 1:
-                self.remove(('take', 'c', 1), possible_actions)
-        else:
-            self.remove(('put', 'c', 2), possible_actions)
-            if status[1] > 2:
-                self.remove(('put', 'c', 1), possible_actions)
-
-    def __capacityActions(self, remainCapacity, possible_actions):
-        if remainCapacity > 0:
-            self.remove(('take', 'm', 2), possible_actions)
-            self.remove(('take', 'c', 2), possible_actions)
-            if remainCapacity > 1:
-                self.remove(('take', 'm', 1), possible_actions)
-                self.remove(('take', 'c', 1), possible_actions)
-            else:
-                self.remove(('put', 'm', 2), possible_actions)
-                self.remove(('put', 'c', 2), possible_actions)
-        else:
-            self.remove(('put', 'm', 1), possible_actions)
-            self.remove(('put', 'c', 1), possible_actions)
-            self.remove(('put', 'm', 2), possible_actions)
-            self.remove(('put', 'c', 2), possible_actions)
-
     def result(self, state, action):
         new_state = list(state)
-        if action == 'right':
-            new_state[0] = 'loc_B'
-        elif action == 'left':
-            new_state[0] = 'loc_A'
-        elif action == ('take', 'm', 1):
-            missionaries = new_state[1][0]
-            if missionaries > 0:
-                new_state[3].append('m')
-                new_state[1][0] -= 1
-        elif action == ('take', 'm', 2):
-            missionaries = new_state[1][0]
-            if missionaries > 1:
-                new_state[3].append('m')
-                new_state[3].append('m')
-                new_state[1][0] -= 2
-        elif action == ('take', 'c', 1):
-            cannibals = new_state[1][1]
-            if cannibals > 0:
-                new_state[3].append('c')
-                new_state[1][1] -= 1
-        elif action == ('take', 'c', 2):
-            cannibals = new_state[1][1]
-            if cannibals > 1:
-                new_state[3].append('c')
-                new_state[3].append('c')
-                new_state[1][1] -= 2
-        elif action == ('put', 'm', 1):
-            if 'm' in new_state[3]:
-                new_state[3].remove('m')
-                new_state[1][0] += 1
-        elif action == ('put', 'm', 2):
-            if new_state[3].count('m') > 1:
-                new_state[3].remove('m')
-                new_state[3].remove('m')
-                new_state[1][0] += 2
-        elif action == ('put', 'c', 1):
-            if 'c' in new_state[3]:
-                new_state[3].remove('c')
-                new_state[1][1] += 1
-        elif action == ('put', 'c', 2):
-            if new_state[3].count('c') > 1:
-                new_state[3].remove('c')
-                new_state[3].remove('c')
-                new_state[1][1] += 2
 
-        if self.check_possible_state(new_state):
+        if state[2] == 'loc_A':
+            new_state[2] = 'loc_B'
+            new_state[0] = state[0] - action[0]
+            new_state[1] = state[1] - action[1]
+        else:
+            new_state[2] = 'loc_A'
+            new_state[0] = state[0] + action[0]
+            new_state[1] = state[1] + action[1]
+
+        new_state[3] = state
+
+        if self.check_possible_state(tuple(new_state)):
             return tuple(new_state)
 
     def goal_test(self, state):
-        return state == self.goal
+        return self.goal[0] == state[0] and self.goal[1] == state[1] and self.goal[2] == state[2]
 
-    def check_possible_state(self, state):
-        missionaries = state[1][0]
-        cannibals = state[1][1]
-        return cannibals <= missionaries and len(state[3]) <= 2
-
-            
+    def check_possible_state(self, new_state):
+        missionaries = new_state[0]
+        cannibals = new_state[1]
+        
+        tempState = copy.deepcopy(new_state)
+        notEqual = True
+        while tempState[3] != None:
+            state = tempState[3]
+            if state[0] == new_state[0] and state[1] == new_state[1] and state[2] == new_state[2]:
+                notEqual = False
+                break
+            tempState = copy.deepcopy(state)
+        
+        return cannibals <= missionaries and notEqual
